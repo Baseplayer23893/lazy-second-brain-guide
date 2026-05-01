@@ -1,7 +1,9 @@
-# The Lazy Second Brain — My Personal Setup Guide (v2)
+# The Lazy Second Brain — My Personal Setup Guide (v3)
 
 > Obsidian + OpenCode (MiniMax M2.5 free) on Arch Linux.
 > Dump notes → AI processes them → knowledge graph builds itself.
+
+> **v3 Update:** Added The Anson Protocol — a living profile that auto-updates as your brain grows. No manual writing needed.
 
 > **v2 Update:** Added terminal-first capture. No need to open Obsidian — just type.
 
@@ -37,6 +39,63 @@ automatically turns your messy notes into structured wiki pages at night.
 ├── Templates/        ← note blueprints
 ├── AGENTS.md         ← AI instruction file (do not delete)
 └── .gitignore
+```
+
+---
+
+## The Anson Protocol (v3 Feature)
+
+Your second brain now tracks *you*. A living profile that auto-updates as your second brain processes notes about you.
+
+### What It Tracks
+
+```yaml
+---
+updated: 2026-05-02
+age: 17
+location: Changanacherry, Kerala
+status: ISC completed | KEAM done | CUSAT CAT (May 10)
+education:
+  target: B.Tech AI & Data Science
+  plan: CUSAT → Management quota
+skills:
+  tech: [Omarchy, Obsidian, OpenCode, Git, Linux]
+  other: [CHDK camera hacking]
+projects: []
+goals:
+  short: [CUSAT May 10, College by July]
+  medium: [B.Tech AI & DS, Freelance income]
+  long: [Used Baleno Altura, Remote job]
+finances:
+  budget: ₹5-6L
+  income_ideas: [Photo stock, Fiverr, Setup help]
+---
+```
+
+### How It Auto-Updates
+
+When you dump notes about yourself (like "Started learning Python" or "Decided to go for AI & Data Science"), the AI:
+
+1. Processes the note normally (creates wiki pages)
+2. ALSO extracts personal updates
+3. Updates `05-Wiki/The-Anson-Protocol.md` with timestamp + wikilinks
+
+No manual writing. Your profile grows automatically.
+
+### What Triggers Updates
+- New skills learned
+- New goals or decisions
+- New projects started
+- Major life updates
+
+### Enable It
+
+In AGENTS.md, add STEP 3b:
+
+```
+STEP 3b: If the note contains personal updates (new skills, goals, decisions, 
+projects, insights about you), also update [[The-Anson-Protocol]] with 
+the new info + timestamp + wikilinks to related pages.
 ```
 
 ---
@@ -155,6 +214,7 @@ STEP 2: Extract exactly 2-3 key ideas from the note
 STEP 3: Check if a matching wiki page exists in 05-Wiki/
   - If YES: open it and add the new ideas
   - If NO: create a new wiki page using the wiki template
+STEP 3b: If the note contains personal updates (new skills, goals, decisions, projects, insights about you), also update [[The-Anson-Protocol]] with the new info + timestamp + wikilinks to related pages.
 STEP 4: Add [[wikilinks]] to at least 2 related pages in 05-Wiki/
 STEP 5: Move the raw note from 00-Inbox/ to 04-Archive/
 STEP 6: Write a log entry to 07-Agent-Logs/YYYY-MM-DD.md
