@@ -1,22 +1,24 @@
-# The Lazy Second Brain — My Personal Setup Guide
+# The Lazy Second Brain — My Personal Setup Guide (v2)
 
 > Obsidian + OpenCode (MiniMax M2.5 free) on Arch Linux.
 > Dump notes → AI processes them → knowledge graph builds itself.
+
+> **v2 Update:** Added terminal-first capture. No need to open Obsidian — just type.
 
 ---
 
 ## What This Is
 
-A second brain setup where you capture everything raw, and an AI agent (OpenCode) 
+A second brain setup where you capture everything raw, and an AI agent (OpenCode)
 automatically turns your messy notes into structured wiki pages at night.
 
 **Stack:**
-
 - **Obsidian** — vault UI, graph view, Bases (database views)
 - **OpenCode** — AI agent that processes notes, model: `opencode/minimax-m2.5-free`
 - **Git + GitHub** — auto-backup every 10 minutes via Obsidian Git plugin
 - **Kepano's Obsidian Skills** — teaches OpenCode proper Obsidian syntax
 - **Graphify** — builds an interactive knowledge graph (optional, add in week 2)
+- **brain command** — terminal-first capture from anywhere
 
 ---
 
@@ -130,6 +132,8 @@ EOF
 cat > ~/brain/AGENTS.md << 'EOF'
 # Second Brain Vault — Agent Context
 
+This is an Obsidian vault. Work with markdown files, wikilinks, and YAML frontmatter.
+
 ## Vault structure
 - 00-Inbox/       = raw unprocessed notes. Process these.
 - 01-Projects/    = active projects with goals and deadlines
@@ -139,6 +143,8 @@ cat > ~/brain/AGENTS.md << 'EOF'
 - 05-Wiki/        = MAIN KNOWLEDGE BASE. Structured wiki pages.
 - 06-Daily/       = daily notes by date (YYYY-MM-DD format)
 - 07-Agent-Logs/  = save your session outputs here
+- 00-PDFs/       = dropped PDF files (read-only, do not edit)
+- 00-PDF-Text/   = extracted text from PDFs. Process these like inbox notes.
 
 ## My method
 Karpathy LLM wiki: capture raw → extract key ideas → update/create wiki pages → link them.
@@ -159,23 +165,55 @@ Every wiki page MUST start with this exact frontmatter:
 created: YYYY-MM-DD
 tags: [relevant-tags]
 status: active
-related: [[link1]], [[link2]]
+related:
+  - [[link1]]
+  - [[link2]]
 ---
 
 Then use this structure:
 # Page Title
 
 ## What it is
+Plain language explanation.
+
 ## Key ideas
+- bullet points
+
 ## My take
+Personal perspective, open questions.
+
 ## Sources
+- references
+
 ## Related
+- [[wikilinks]]
 
 ## CRITICAL RULES
 - NEVER delete raw notes — only move them to 04-Archive/
-- ALWAYS use YAML frontmatter
+- ALWAYS use YAML frontmatter (the --- block at the top)
 - ALWAYS add at least 2 [[wikilinks]] to every wiki page
 - ALWAYS log what you did to 07-Agent-Logs/
+- Use today's date for all new pages
+
+## Index Workflow
+BEFORE answering any query: read index.md first to identify relevant pages.
+Then drill into those pages. This avoids the need for embedding-based RAG at scale.
+When creating new wiki pages, update index.md to include them.
+
+## PDF Processing
+- 00-PDFs/ = dropped PDF files (read-only, do not edit)
+- 00-PDF-Text/ = extracted text from PDFs. Process these like inbox notes.
+- For question papers: extract repeated patterns, add to CUSAT-Repeated-Questions
+- For formula sheets: add formulas to subject-specific wiki pages
+- For textbooks: extract key concepts and formulas only
+
+## Wikilink Format (CRITICAL — DO NOT BREAK)
+- related field in YAML MUST use list format:
+  related:
+    - [[Page Name]]
+- NEVER use: related: [[Page1]], [[Page2]] (breaks graph)
+- ALWAYS add "## Related" section in body with same links
+- Graph connections only work when links exist in body text
 EOF
 ```
 
@@ -283,11 +321,9 @@ flatpak install flathub md.obsidian.Obsidian
 ### 10. Configure Obsidian settings
 
 **Settings → Files & Links:**
-
 - Default location for new notes → `In the folder specified below` → `00-Inbox`
 
 **Settings → Core plugins — enable all of these:**
-
 - Templates
 - Bases
 - Daily Notes
@@ -296,11 +332,9 @@ flatpak install flathub md.obsidian.Obsidian
 - Graph view
 
 **Settings → Templates:**
-
 - Template folder location → `Templates`
 
 **Settings → Daily Notes:**
-
 - New file location → `06-Daily`
 - Template file location → `Templates/daily-note`
 
@@ -310,15 +344,14 @@ Settings → Community plugins → Turn off Restricted Mode → Browse
 
 Install and enable each:
 
-| Plugin     | Author                 | What it does                    |
-| ---------- | ---------------------- | ------------------------------- |
-| Git        | Vinzent (Denis Olehov) | Auto-commit + push every 10 min |
-| Calendar   | Tony Grosinger         | Click dates to open daily notes |
-| Templater  | SilentVoid             | Smarter template insertion      |
-| Omnisearch | Simon Cambier          | Full-text search across vault   |
+| Plugin | Author | What it does |
+|--------|--------|-------------|
+| Git | Vinzent (Denis Olehov) | Auto-commit + push every 10 min |
+| Calendar | Tony Grosinger | Click dates to open daily notes |
+| Templater | SilentVoid | Smarter template insertion |
+| Omnisearch | Simon Cambier | Full-text search across vault |
 
 **Configure Git plugin** (Settings → Git):
-
 - Auto commit-and-sync interval: `10`
 - Auto commit-and-sync after stopping file edits: `ON`
 - Commit message: `vault: {{date}}`
@@ -343,6 +376,49 @@ git push -u origin main
 ```
 
 Done. Obsidian Git auto-pushes every 10 minutes from now.
+
+### 14. Install brain command (terminal-first capture)
+
+```bash
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/brain << 'EOF'
+#!/bin/bash
+
+# Quick capture to your second brain
+# Usage: brain "note content"     → dump to inbox
+#        brain --process "note"  → capture + process immediately
+
+VAULT="$HOME/brain"
+INBOX="$VAULT/00-Inbox"
+
+if [ ! -d "$VAULT" ]; then
+  echo "Error: ~/brain vault not found"
+  exit 1
+fi
+
+if [ "$1" = "--process" ]; then
+  shift
+  CONTENT="$*"
+  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+  FILE="$INBOX/capture-$TIMESTAMP.md"
+  echo -e "---\ndate: $(date +%Y-%m-%d)\ncaptured: terminal\n---\n\n$CONTENT" > "$FILE"
+  echo "Captured: $FILE"
+  cd "$VAULT" && opencode run "Process all notes in 00-Inbox/ using my wiki method. Log everything."
+else
+  CONTENT="$*"
+  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+  FILE="$INBOX/capture-$TIMESTAMP.md"
+  echo -e "---\ndate: $(date +%Y-%m-%d)\ncaptured: terminal\n---\n\n$CONTENT" > "$FILE"
+  echo "Captured: $FILE"
+fi
+EOF
+
+chmod +x ~/.local/bin/brain
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Done! Now you can capture from anywhere.
 
 ---
 
@@ -426,25 +502,31 @@ Restart Obsidian after creating base files for them to load correctly.
 
 ---
 
-## Daily Workflow
+## Daily Workflow (Terminal-First)
 
-### Morning (2 min)
+### All day — just type
 
-1. Open Obsidian
-2. Click today in the Calendar sidebar
-3. Write 1–3 things under **Focus today**
+No need to open Obsidian. Capture from anywhere:
 
-### All day
+```bash
+brain "Meeting with John about the project deadline"
+brain "Interesting article about AI workflows"
+brain "Need to remember: buy milk, call mom"
+```
 
-- Dump everything into the daily note's **Captures** section
-- Or press `Ctrl+N` for a quick note → auto-lands in `00-Inbox/`
-- Don't organise. Just capture.
+That's it. Notes go straight to inbox.
 
 ### Evening (5 min)
 
 ```bash
 cd ~/brain
 opencode run "Process all notes in 00-Inbox/ using my wiki method. Log everything."
+```
+
+Or use the shortcut that does both:
+
+```bash
+brain --process "One more thought I had today"
 ```
 
 ### Sunday (20 min)
@@ -476,12 +558,30 @@ cd ~/brain && opencode run "Run weekly vault review. Save to 07-Agent-Logs/."
 ```
 
 **Inside the OpenCode TUI** (`opencode` → interactive):
-
 ```
 user:process-inbox    → process all inbox notes
 user:weekly-review    → weekly review
 user:nightly-review   → nightly tidy
 ```
+
+---
+
+## Terminal-First Capture (brain command)
+
+```bash
+# Quick capture to inbox (instant)
+brain "whatever is on your mind"
+
+# Capture + process immediately (AI turns it into wiki)
+brain --process "meeting notes about the new feature"
+
+# Works from anywhere — terminal, anywhere in filesystem
+```
+
+The brain command:
+- Creates timestamped notes in `00-Inbox/`
+- Auto-adds frontmatter with date
+- Optional `--process` flag triggers OpenCode to process immediately
 
 ---
 
@@ -514,16 +614,17 @@ graphify query "what connects habits to self-improvement?" --graph graphify-out/
 
 ## Troubleshooting
 
-| Problem                                  | Fix                                                          |
-| ---------------------------------------- | ------------------------------------------------------------ |
-| `command not found: opencode`            | Close terminal, open new one                                 |
-| OpenCode loops forever                   | Press `Ctrl+C`, run again. Free model is flaky.              |
-| `ProviderModelNotFoundError`             | Check `~/.config/opencode/opencode.json` — model must be `opencode/minimax-m2.5-free` |
-| Bases show wrong files                   | Wrong syntax. Filters need `and:` key (see Bases section above) |
+| Problem | Fix |
+|---------|-----|
+| `command not found: opencode` | Close terminal, open new one |
+| OpenCode loops forever | Press `Ctrl+C`, run again. Free model is flaky. |
+| `ProviderModelNotFoundError` | Check `~/.config/opencode/opencode.json` — model must be `opencode/minimax-m2.5-free` |
+| Bases show wrong files | Wrong syntax. Filters need `and:` key (see Bases section above) |
 | Template shows `{{date:YYYY-MM-DD}}` raw | Normal in template file itself. Only expands when inserted into a real note. |
-| Daily note duplicated                    | Clicked calendar button multiple times. Delete duplicate content manually. |
-| Git push rejected                        | Someone pushed from another device. Run `git pull` first, then `git push`. |
-| Obsidian Git won't push                  | Settings → Git → Auto push after commit = ON                 |
+| Daily note duplicated | Clicked calendar button multiple times. Delete duplicate content manually. |
+| Git push rejected | Someone pushed from another device. Run `git pull` first, then `git push`. |
+| Obsidian Git won't push | Settings → Git → Auto push after commit = ON |
+| `brain: command not found` | Run `source ~/.bashrc` or restart terminal |
 
 ---
 
@@ -534,7 +635,6 @@ opencode models
 ```
 
 Current free options:
-
 ```
 opencode/minimax-m2.5-free   ← what we use
 opencode/ling-2.6-flash-free
@@ -553,6 +653,7 @@ opencode/nemotron-3-super-free
 ~/.config/opencode/opencode.json  ← OpenCode config (model, params)
 ~/.config/opencode/commands/      ← custom slash commands
 ~/.opencode/skills/obsidian-skills/ ← Kepano's Obsidian skills
+~/.local/bin/brain                ← terminal capture script
 ```
 
 ---
@@ -564,3 +665,4 @@ opencode/nemotron-3-super-free
 - [Obsidian Git plugin](https://github.com/Vinzent03/obsidian-git)
 - [Karpathy's LLM wiki method](https://x.com/karpathy) — the philosophy behind this setup
 - [The Power of Habit — Charles Duhigg](https://charlesduhigg.com/the-power-of-habit/) — first test note topic
+- [GitHub](https://github.com/Baseplayer23893/lazy-second-brain-guide) — this guide
